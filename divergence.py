@@ -37,7 +37,6 @@ def cl(U):
     CL=inp[:,1]
     p=polyfit(AOA,CL,1)
     return(p[0])
-    
 def Ka(k,x_ea,x_sp):
     return 4*k*np.abs(x_ea-x_sp)/2.
     
@@ -52,6 +51,10 @@ for i in range(len(U)):
     Ud[i]=Ufc(U[i],rho,l,c,x_ea,x_sp,k)
 
 plt.plot(U,-U+Ud)
+
+# make sure clalpha is the slope not cl
+# make clalpha a function of u
+
 
 #case="Remax"
 #print(case)
