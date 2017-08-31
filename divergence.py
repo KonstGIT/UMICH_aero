@@ -28,7 +28,7 @@ k=14.53#N/m
 def Re(kin_visc,c,U):
     return U*c/kin_visc
 
-def cl(U):
+def cla(U):
     filename="naca0012_"+str(int(U))
     calcPolar("0012", int(Re(kin_visc,c,U)), filename, alfaseq=np.linspace(-5,5,10))
     inp = np.loadtxt(filename,skiprows=12)
@@ -37,20 +37,21 @@ def cl(U):
     CL=inp[:,1]
     p=polyfit(AOA,CL,1)
     return(p[0])
+
 def Ka(k,x_ea,x_sp):
     return 4*k*np.abs(x_ea-x_sp)/2.
     
-def Ufc(U,rho,l,c,x_ea,x_sp,k): # u for divergence
+def div_crit(U,rho,l,c,x_ea,x_sp,k): # divergence criteria
     S=l*c
-    return np.sqrt(2*Ka(k,x_ea,x_sp)/(rho*S*cl(U)*(x_ea-x_ac)))
+    return Ka(k,x_ea,x_sp)-S*cla(U)*.5*U*U*rho*(x_ea-x_sp)
 
 
 U=np.linspace(.5,10,20)
-Ud=np.zeros(len(U))
+crit=np.zeros(len(U))
 for i in range(len(U)):
-    Ud[i]=Ufc(U[i],rho,l,c,x_ea,x_sp,k)
+    crit[i]=div_crit(U[i],rho,l,c,x_ea,x_sp,k)
 
-plt.plot(U,-U+Ud)
+plt.plot(U,crit)
 
 # make sure clalpha is the slope not cl
 # make clalpha a function of u
