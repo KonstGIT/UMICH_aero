@@ -13,6 +13,9 @@ from scipy import polyfit
 import matplotlib.pyplot as plt
 from xfoil import calcPolar
 from scipy import interpolate
+import matplotlib.ticker as mtick
+from matplotlib.backends.backend_pdf import PdfPages
+
 
 def generate_lookup_clalph(Umin,Umax,steps,l,c,x_ea,x_ac,x_sp,k,filename,rho=1.2,kin_visc=15.11E-6):
     U=np.linspace(Umin,Umax,steps)    
@@ -35,10 +38,7 @@ def get_lookup_clalph(filename,plot=False):
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
         ax.xaxis.set_ticks_position('bottom')
-        ax.yaxis.set_ticks_position('left') 
-        
-        
-        
+        ax.yaxis.set_ticks_position('left')         
     return interpolate.interp1d(U, cla)
 
 def flutter_speed(filename,U,m,Ia,Sa,k,x_ea,x_sp,x_cg,x_ac,c,l,rho=1.2):   
@@ -54,63 +54,83 @@ def flutter_speed(filename,U,m,Ia,Sa,k,x_ea,x_sp,x_cg,x_ac,c,l,rho=1.2):
     C=kh*(ka-e*q*S*cla(U))+0j
     p2_1=(-B+np.sqrt(B**2-4*A*C))/(2*A)    
     p2_2=(-B-np.sqrt(B**2-4*A*C))/(2*A) 
-    print(A)
-    print(B)
-    print(C)
-    print(p2_1)    
-    print(p2_2)
     
 def Re(kin_visc,c,U):
     return U*c/kin_visc
 
-def cla(U,kin_visc,c):
-    filename="naca0012_"+str(int(U))
-    calcPolar("0012", int(Re(kin_visc,c,U)), filename, alfaseq=np.linspace(-5,5,10))
-    inp = np.loadtxt(filename,skiprows=12)
+def cla(U,kin_visc,c,plot=True,profile="0012",pdfobj=-1): #1/rad
+    filename='naca'+profile+"_"+str(int(U))
     
-    AOA=inp[:,0]*np.pi/180.
+    calcPolar(profile, int(Re(kin_visc,c,U)), filename, alfaseq=np.linspace(0,8,50))
+    inp = np.loadtxt(filename,skiprows=12)
+    inp = np.append(inp,-inp[1:,:],axis=0)
+    AOA=inp[:,0]
     CL=inp[:,1]
-    p=polyfit(AOA,CL,1)
+    p=polyfit(AOA*np.pi/180.,CL,1)
+    if plot:
+        fig, ax = plt.subplots()
+        plt.plot(AOA*np.pi/180.,CL,".",label=r"$\mathrm{Num. data}$",color=[.2, .2, .2])  
+        plt.plot(AOA*np.pi/180.,p[0]*AOA*np.pi/180.,label=r"$\mathrm{Linear regression}$",color="red")
+        plt.title(r"$\mathrm{NACA"+profile+"}\ U_\infty="+str('%0.2f' %U)+"\ ms^{-1}\ \mathrm{Re}="+str(int(Re(kin_visc,c,U)))+"$")
+        plt.xlabel(r"$\mathrm{Angle\ of\ attack}\ [rad]$")
+        plt.ylabel(r"$c_l\ [-]$")
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.xaxis.set_ticks_position('bottom')
+        ax.yaxis.set_ticks_position('left')  
+        if pdfobj!=-1:
+           pdfobj.savefig()   
+           
     return(p[0])
 
 def Ka(k,x_ea,x_sp):
-    return 8*k/np.abs(x_ea-x_sp)
+    return 4.*k*np.abs(x_ea-x_sp)
     
-def div_crit(U,rho,l,c,x_ea,x_ac,x_sp,k,kin_visc): # divergence criteria
+def eff_stiff(U,rho,l,c,x_ea,x_ac,x_sp,k,kin_visc,profile="0012",pdfobj=-1): # effective stiffness
     S=l*c
-    return Ka(k,x_ea,x_sp)-S*cla(U,kin_visc,c)*.5*U*U*rho*(x_ea-x_ac)
+    return Ka(k,x_ea,x_sp)-S*cla(U,kin_visc,c,profile=profile,pdfobj=pdfobj)*.5*U*U*rho*(x_ea-x_ac)
 
-def get_div_speed(Umax,l,c,x_ea,x_sp,x_ac,k,plot=False,steps=20,Umin=.5,rho=1.2,kin_visc=15.11E-6):
+def get_div_speed(Umax,l,c,x_ea,x_sp,x_ac,k,plot=False,steps=20,Umin=.5,rho=1.2,kin_visc=15.11E-6,profile="0012",pdfobj=-1):
     U=np.linspace(Umin,Umax,steps)
     crit=np.zeros(len(U))
     for i in range(len(U)):
-        crit[i]=div_crit(U[i],rho,l,c,x_ea,x_ac,x_sp,k,kin_visc)
+        crit[i]=eff_stiff(U[i],rho,l,c,x_ea,x_ac,x_sp,k,kin_visc,profile,pdfobj=pdfobj)
+        
     if plot:
         fig, ax = plt.subplots()
         plt.plot(U,crit,".b")
         plt.plot(U[min(np.abs(crit))==np.abs(crit)],crit[min(np.abs(crit))==np.abs(crit)],'go')
         plt.xlabel(r'$\mathrm{Flow\ velocity\ [m/s]}$')
-        plt.ylabel(r'$\mathrm{Effective\ stiffnesst\ [N/rad]}$')
-        plt.title(r"$\mathrm{Divergence\ velocity\ from\ effective\ stiffness}$") 
+        plt.ylabel(r'$\mathrm{Effective\ stiffness\ [N/rad]}$')
+        plt.title(r"$\mathrm{Effective\ stiffness}$") 
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
         ax.xaxis.set_ticks_position('bottom')
         ax.yaxis.set_ticks_position('left')  
+        plt.xlim([0,Umax*1.1])  
+        fmt = r'$%1.0f$'
+        xticks = mtick.FormatStrFormatter(fmt)
+        ax.xaxis.set_major_formatter(xticks)            
+        if pdfobj!=-1:
+           pdfobj.savefig()  
+           
     return U[min(np.abs(crit))==np.abs(crit)]
     
-def test_get_Ud():
+def get_Ud():
     c=0.108 #m
     l=0.295 #m
     x_sp=0.6*c #m
     x_ea=0.5*c #m
     x_ac=0.25*c #m
-    k=14.53#N/m    
-    Umax=10 # m/s
-    print(get_div_speed(Umax,l,c,x_ea,x_sp,x_ac,k,steps=40,plot=True))
-
+    k=14.53 #N/m    
+    Umax=10. # m/s
+    pp = PdfPages("naca0012_divergencespeed")
+    get_div_speed(Umax,l,c,x_ea,x_sp,x_ac,k,steps=20,plot=True,profile="0012",pdfobj=pp)
+    pp.close()
+    
 def test_get_flutter():
 
-    Umin=0.5
+    Umin=2
     Umax=15
     steps=500
     
@@ -125,14 +145,16 @@ def test_get_flutter():
     Ia=3.92E-4 #kg/m/l
     Sa=(x_ea-x_cg)*m #kg m
     k=2*14.53#N/m  
-    filename="cl_alpha_lookup.npy"
+    lookup_file="cl_alpha_lookup.npy"
     U=9.
-    flutter_speed(filename,U,m,Ia,Sa,k,x_ea,x_sp,x_cg,x_ac,c,l)
+
+    flutter_speed(lookup_file,U,m,Ia,Sa,k,x_ea,x_sp,x_cg,x_ac,c,l)
+
  
-test_get_flutter()
+#test_get_Ud()
 
 #generate_lookup_clalph(Umin,Umax,steps,l,c,x_ea,x_ac,x_sp,k,filename,rho=1.2,kin_visc=15.11E-6)
-
+get_Ud()
 
 
 
