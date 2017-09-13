@@ -15,7 +15,8 @@ from xfoil import calcPolar
 from scipy import interpolate
 import matplotlib.ticker as mtick
 from matplotlib.backends.backend_pdf import PdfPages
-
+from numpy import linalg as LA
+from numpy.linalg import inv
 
 def generate_lookup_clalph(Umin,Umax,steps,l,c,x_ea,x_ac,x_sp,k,filename,rho=1.2,kin_visc=15.11E-6):
     U=np.linspace(Umin,Umax,steps)    
@@ -54,6 +55,24 @@ def flutter_speed(filename,U,m,Ia,Sa,k,x_ea,x_sp,x_cg,x_ac,c,l,rho=1.2):
     C=kh*(ka-e*q*S*cla(U))+0j
     p2_1=(-B+np.sqrt(B**2-4*A*C))/(2*A)    
     p2_2=(-B-np.sqrt(B**2-4*A*C))/(2*A) 
+    
+# static
+def flutter_static(U,cla,rho,Kh,Ka,S,m,Sa,Ia,e):
+    # generate matrix
+    q=.5*rho*U**2
+    A=np.array([[Kh, q*S*cla],[0, Ka-e*q*S*cla]])
+    B=inv(np.array([[m, Sa],[Sa, Ia]]))
+    print(np.sqrt(LA.eig(np.dot(B,A))))   
+    return 0
+    
+# quasi-static
+def flutter_quasistatic():
+    return 0  
+    
+# theodorsen garrik    
+def flutter_theodorsen_garrik():
+    return 0     
+    
     
 def Re(kin_visc,c,U):
     return U*c/kin_visc
@@ -94,8 +113,7 @@ def get_div_speed(Umax,l,c,x_ea,x_sp,x_ac,k,plot=False,steps=20,Umin=.5,rho=1.2,
     U=np.linspace(Umin,Umax,steps)
     crit=np.zeros(len(U))
     for i in range(len(U)):
-        crit[i]=eff_stiff(U[i],rho,l,c,x_ea,x_ac,x_sp,k,kin_visc,profile,pdfobj=pdfobj)
-        
+        crit[i]=eff_stiff(U[i],rho,l,c,x_ea,x_ac,x_sp,k,kin_visc,profile,pdfobj=pdfobj)       
     if plot:
         fig, ax = plt.subplots()
         plt.plot(U,crit,".b")
@@ -150,11 +168,11 @@ def test_get_flutter():
 
     flutter_speed(lookup_file,U,m,Ia,Sa,k,x_ea,x_sp,x_cg,x_ac,c,l)
 
- 
+flutter_static(1,2,3,4,5,6,7,8,9,10)
 #test_get_Ud()
 
 #generate_lookup_clalph(Umin,Umax,steps,l,c,x_ea,x_ac,x_sp,k,filename,rho=1.2,kin_visc=15.11E-6)
-get_Ud()
+#get_Ud()
 
 
 
