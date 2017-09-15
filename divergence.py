@@ -71,7 +71,6 @@ def claclm(U,kin_visc,c,plot_cl=False,plot_cm=False,profile="0012",pdfobj=-1): #
 
     AOA=inp[:,0]
     CL=inp[:,1]
-    CM=inp[:,4]
 
     p1=polyfit(AOA*np.pi/180.,CL,1)
     p2=polyfit(AOA*np.pi/180.,CM,1)
@@ -88,21 +87,6 @@ def claclm(U,kin_visc,c,plot_cl=False,plot_cm=False,profile="0012",pdfobj=-1): #
         ax.yaxis.set_ticks_position('left')  
         if pdfobj!=-1:
            pdfobj.savefig()   
-    if plot_cm:
-        fig, ax = plt.subplots()
-        print(CM)
-        print(AOA)
-        plt.plot(AOA*np.pi/180.,CM,".",label=r"$\mathrm{Num. data}$",color=[.2, .2, .2])  
-        plt.plot(AOA*np.pi/180.,p2[0]*AOA*np.pi/180.,label=r"$\mathrm{Linear regression}$",color="red")
-        plt.title(r"$\mathrm{NACA"+profile+"}\ U_\infty="+str('%0.2f' %U)+"\ ms^{-1}\ \mathrm{Re}="+str(int(Re(kin_visc,c,U)))+"$")
-        plt.xlabel(r"$\mathrm{Angle\ of\ attack}\ [rad]$")
-        plt.ylabel(r"$c_m\ [-]$")
-        ax.spines['right'].set_visible(False)
-        ax.spines['top'].set_visible(False)
-        ax.xaxis.set_ticks_position('bottom')
-        ax.yaxis.set_ticks_position('left')  
-        if pdfobj!=-1:
-           pdfobj.savefig() 
            
     return(p1[0],p2[0])
 
@@ -184,15 +168,14 @@ def get_flutter(plot=False):
         
     if plot:
         fig, ax = plt.subplots()
-        plt.plot(EVqs[:,0],np.imag(EVqs[:,1]),".",color=[.05,.05,.05],label=r"$\mathrm{Eigenvalue}\ 1$")
-        plt.plot(EVqs[:,0],np.imag(-EVqs[:,1]),".",color=[.05,.05,.05])
+        for i in range(len(U)):
+            plt.plot(EVqs[i,0]*np.ones(len(EVqs[0,:])-1),np.imag(EVqs[:,1:]),".",color=[.05,.05,.05],label=r"$\mathrm{Eigenvalue}\ 1$")
         plt.plot(EVqs[:,0],np.imag(EVqs[:,2]),".",color=[.1,.5,.1],label=r"$\mathrm{Eigenvalue}\ 2$")
-        plt.plot(EVqs[:,0],-np.imag(EVqs[:,2]),".",color=[.1,.5,.1])
         plt.legend(loc=3)
         plt.xlabel(r'$\mathrm{Flow\ velocity\ [m/s]}$')
         plt.ylabel(r'$\mathrm{Im}\ EV$')
         plt.title(r"$\mathrm{Imag.\ part\ of\ eigenvalues\ static}$") 
-        fmt = r'$%1.0f$'
+        fmt = r'$%1.2f$'
         xticks = mtick.FormatStrFormatter(fmt)
         ax.xaxis.set_major_formatter(xticks) 
         yticks = mtick.FormatStrFormatter(fmt)
@@ -214,11 +197,13 @@ def flutter_st(U,Kh,Ka,S,m,Sa,Ia,e,c,kin_visc=15.11E-6,profile="0012",rho=1.22):
     
 # quasi-static
 def flutter_qst(U,Kh,Ka,S,m,Sa,Ia,e,c,kin_visc=15.11E-6,profile="0012",rho=1.22):
-    dclda,dcmda=claclm(U,kin_visc,c,plot_cm=False,plot_cl=False)
+    #dclda=claclm(U,kin_visc,c,plot_cm=False,plot_cl=False)
+    dclda=6
+    dcmdadot=0.
     q=.5*rho*U**2
     
     M=np.array([[m, Sa],[Sa, Ia]])
-    D=np.array([[q*S*dclda/U,0],[e*q*S*dclda/U,-q*S*c*dcmda]])
+    D=np.array([[q*S*dclda/U,0],[e*q*S*dclda/U,-q*S*c*dcmdadot]])
     K=np.array([[Kh, q*S*dclda],[0, Ka-e*q*S*dclda]])
     
     A=np.zeros([4,4])
@@ -232,7 +217,7 @@ def flutter_qst(U,Kh,Ka,S,m,Sa,Ia,e,c,kin_visc=15.11E-6,profile="0012",rho=1.22)
     
     Ai=inv(A)
     ev=LA.eig(np.dot(Ai,B)+0j)  
-    print(ev)
+    print(ev[0])
     return ev[0]
     
 # theodorsen garrik    
