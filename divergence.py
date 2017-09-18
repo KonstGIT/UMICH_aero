@@ -12,7 +12,8 @@ import numpy as np
 from scipy import polyfit
 import matplotlib.pyplot as plt
 from xfoil import calcPolar
-from scipy import interpolate
+from scipy.interpolate import interp1d
+from scipy.linalg import eig
 import matplotlib.ticker as mtick
 from matplotlib.backends.backend_pdf import PdfPages
 from numpy import linalg as LA
@@ -155,69 +156,125 @@ def get_flutter(plot=False):
     Sa=(x_ea-x_cg)*m #kg m
     e=x_ea-x_ac #m
     
-    Umin=0.5
-    Umax=50
+    Umin=2
+    Umax=6
     
-    U=np.linspace(Umin,Umax,1)
-    EVs=np.zeros([len(U),3])+0j
+    U=np.linspace(Umin,Umax,100)
+    EVs=np.zeros([len(U),5])+0j
     EVqs=np.zeros([len(U),5])+0j
     for i in range(len(U)):
-#        EVs[i,:]=np.append(U[i],flutter_st(U[i],kh,ka,S,m,Sa,Ia,e,c))
+        EVs[i,:]=np.append(U[i],flutter_st(U[i],kh,ka,S,m,Sa,Ia,e,c))
         EVqs[i,:]=np.append(U[i],flutter_qst(U[i],kh,ka,S,m,Sa,Ia,e,c))
-        
+#        print(U[i])
+#        print(EVqs[i,:])
         
     if plot:
-        fig, ax = plt.subplots()
-        for i in range(len(U)):
-            plt.plot(EVqs[i,0]*np.ones(len(EVqs[0,:])-1),np.imag(EVqs[:,1:]),".",color=[.05,.05,.05],label=r"$\mathrm{Eigenvalue}\ 1$")
-        plt.plot(EVqs[:,0],np.imag(EVqs[:,2]),".",color=[.1,.5,.1],label=r"$\mathrm{Eigenvalue}\ 2$")
-        plt.legend(loc=3)
-        plt.xlabel(r'$\mathrm{Flow\ velocity\ [m/s]}$')
-        plt.ylabel(r'$\mathrm{Im}\ EV$')
-        plt.title(r"$\mathrm{Imag.\ part\ of\ eigenvalues\ static}$") 
+        fig, ax = plt.subplots(2,1)
+
+#        plt.plot(EVqs[:,0],np.imag(EVqs[:,1]),".",color="red",label=r"$\mathrm{Imag}\ 1$")
+#        plt.plot(EVqs[:,0],np.imag(EVqs[:,2]),".",color="red")
+#        plt.plot(EVqs[:,0],np.imag(EVqs[:,3]),".",color="red")
+#        plt.plot(EVqs[:,0],np.imag(EVqs[:,4]),".",color="red")   
+        f=interp1d(EVqs[:,0],np.real(EVqs[:,4]))
+        cross=-1
+#        for i in range(len(U)-1):
+#            if f(U[i+1])*f(U[i])<0:
+#                cross=.5*U[i]**2*1.22
+#                ax[0].plot(.5*U[i]**2*1.22,0,'or')     
+
+        ax[0].plot(.5*EVqs[:,0]**2*1.22,np.real(EVqs[:,1]),"-",color="red",linestyle="dashed",label=r"$\mathrm{Re}(\lambda_1^{qst.})$")
+        ax[0].plot(.5*EVqs[:,0]**2*1.22,np.real(EVqs[:,2]),"-",color="blue",label=r"$\mathrm{Re}(\lambda_2^{qst.})$")
+        ax[0].plot(.5*EVqs[:,0]**2*1.22,np.real(EVqs[:,3]),"-",color="orange",label=r"$\mathrm{Re}(\lambda_3^{qst.})$")
+        ax[0].plot(.5*EVqs[:,0]**2*1.22,np.real(EVqs[:,4]),"-",color="green",label=r"$\mathrm{Re}(\lambda_4^{qst.})$")   
+        ax[0].plot(.5*EVs[:,0]**2*1.22,np.real(EVs[:,1]),"-",color="black",linestyle="dashed",label=r"$\mathrm{Re}(\lambda_1^{st.})$")
+        ax[0].plot(.5*EVs[:,0]**2*1.22,np.real(EVs[:,2]),"-",color="grey",linestyle="dashed",label=r"$\mathrm{Re}(\lambda_2^{st.})$")               
+        ax[0].plot(.5*EVs[:,0]**2*1.22,np.real(EVs[:,3]),"-",color="black",linestyle="dashed",label=r"$\mathrm{Re}(\lambda_1^{st.})$")
+        ax[0].plot(.5*EVs[:,0]**2*1.22,np.real(EVs[:,4]),"-",color="grey",linestyle="dashed",label=r"$\mathrm{Re}(\lambda_2^{st.})$")               
+
+        ax[0].legend(loc=3)
+        ax[0].set_xlabel(r'$\mathrm{Dynamic\ pressure\ [kg\ m^{-1}\ s^{-2}]}$')
+        ax[0].set_ylabel(r'$\xi\ \ [1/s]$')
+        ax[0].set_title(r"$\mathrm{Damping}\lambda_j=\xi_j+i\omega_j$") 
         fmt = r'$%1.2f$'
         xticks = mtick.FormatStrFormatter(fmt)
-        ax.xaxis.set_major_formatter(xticks) 
+        ax[0].xaxis.set_major_formatter(xticks) 
         yticks = mtick.FormatStrFormatter(fmt)
-        ax.yaxis.set_major_formatter(yticks)     
-        ax.spines['right'].set_visible(False)
-        ax.spines['top'].set_visible(False)
-        ax.xaxis.set_ticks_position('bottom')
-        ax.yaxis.set_ticks_position('left')      
+        ax[0].yaxis.set_major_formatter(yticks)     
+        ax[0].spines['right'].set_visible(False)
+        ax[0].spines['top'].set_visible(False)
+        ax[0].xaxis.set_ticks_position('bottom')
+        ax[0].yaxis.set_ticks_position('left')     
+        ax[0].plot(cross*np.ones(2),[np.max(np.real(EVqs[:,4])),np.min(np.real(EVqs[:,3]))],'-r')   
+
+        ax[1].plot(.5*EVqs[:,0]**2*1.22,np.imag(EVqs[:,1]),"-",color="red",linestyle="dashed",label=r"$\mathrm{Im}(\lambda_1)$")
+        ax[1].plot(.5*EVqs[:,0]**2*1.22,np.imag(EVqs[:,2]),"-",color="blue",label=r"$\mathrm{Im}(\lambda_2)$")
+        ax[1].plot(.5*EVqs[:,0]**2*1.22,np.imag(EVqs[:,3]),"-",color="orange",label=r"$\mathrm{Im}(\lambda_3)$")
+        ax[1].plot(.5*EVqs[:,0]**2*1.22,np.imag(EVqs[:,4]),"-",color="green",label=r"$\mathrm{Im}(\lambda_4)$") 
+
+        ax[1].plot(.5*EVs[:,0]**2*1.22,np.imag(EVs[:,1]),"-",color="black",linestyle="dashed",label=r"$\mathrm{Im}(\lambda_1^{st.})$")
+        ax[1].plot(.5*EVs[:,0]**2*1.22,np.imag(EVs[:,2]),"-",color="grey",linestyle="dashed",label=r"$\mathrm{Im}(\lambda_2^{st.})$")               
+        ax[1].plot(.5*EVs[:,0]**2*1.22,np.imag(EVs[:,3]),"-",color="black",linestyle="dashed",label=r"$\mathrm{Im}(\lambda_1^{st.})$")
+        ax[1].plot(.5*EVs[:,0]**2*1.22,np.imag(EVs[:,4]),"-",color="grey",linestyle="dashed",label=r"$\mathrm{Im}(\lambda_2^{st.})$")               
+        
+        ax[1].legend(loc=3)
+        ax[1].set_xlabel(r'$\mathrm{Dynamic\ pressure\ [kg\ m^{-1}\ s^{-2}]}$')
+        ax[1].set_ylabel(r'$\omega\ \ [1/s]$')
+        ax[1].set_title(r"$\mathrm{Frequencies}\lambda_j=\xi_j+i\omega_j$") 
+        fmt = r'$%1.2f$'
+        xticks = mtick.FormatStrFormatter(fmt)
+        ax[1].xaxis.set_major_formatter(xticks) 
+        yticks = mtick.FormatStrFormatter(fmt)
+        ax[1].yaxis.set_major_formatter(yticks)     
+        ax[1].spines['right'].set_visible(False)
+        ax[1].spines['top'].set_visible(False)
+        ax[1].xaxis.set_ticks_position('bottom')
+        ax[1].yaxis.set_ticks_position('left')     
+        ax[1].plot(cross*np.ones(2),[np.min(np.imag(EVqs[:,4])),np.max(np.imag(EVqs[:,3]))],'-r')   
 
 # static
 def flutter_st(U,Kh,Ka,S,m,Sa,Ia,e,c,kin_visc=15.11E-6,profile="0012",rho=1.22):
     # generate matrix
-    dclda,dcmda=cladcm(U,kin_visc,c,plot=False)
+#    dclda=cla(U,kin_visc,c,plot=False)
+    dclda=6
     q=.5*rho*U**2
     A=np.array([[Kh, q*S*dclda],[0, Ka-e*q*S*dclda]])
-    B=inv(np.array([[m, Sa],[Sa, Ia]]))
-    ev=np.asarray(np.sqrt(LA.eig(np.dot(B,A))[0]+0j))    
-    return ev
+    B=np.array([[m, Sa],[Sa, Ia]])
+    ev=eig(np.dot(A,-B))[0]
+    print(np.sqrt(ev))
+    return np.append(np.sqrt(ev),-np.sqrt(ev))
     
 # quasi-static
 def flutter_qst(U,Kh,Ka,S,m,Sa,Ia,e,c,kin_visc=15.11E-6,profile="0012",rho=1.22):
     #dclda=claclm(U,kin_visc,c,plot_cm=False,plot_cl=False)
-    dclda=6
-    dcmdadot=0.
+    dclda=6.1
+    dcmdadot=-0.0
     q=.5*rho*U**2
     
+#    M=np.array([[1,-1],[1,1]])+.0
+#    D=np.array([[1,0],[-2,-2]])+.0
+#    K=np.array([[0,-2],[1,-1]])+.0
+    
     M=np.array([[m, Sa],[Sa, Ia]])
-    D=np.array([[q*S*dclda/U,0],[e*q*S*dclda/U,-q*S*c*dcmdadot]])
+    D=np.array([[q*S*dclda/U,0],[-e*q*S*dclda/U,-q*S*c*dcmdadot]])
     K=np.array([[Kh, q*S*dclda],[0, Ka-e*q*S*dclda]])
     
-    A=np.zeros([4,4])
-    A[:2,:2]=M
-    A[2:,2:]=np.diag(np.ones(2))
-    
     B=np.zeros([4,4])
-    B[:2,:2]=D
-    B[:2,2:]=K
-    B[2:,:2]=-np.diag(np.ones(2))
+    B[:2,:2]=M
+    B[2:,2:]=np.diag(np.ones(2))
+
     
-    Ai=inv(A)
-    ev=LA.eig(np.dot(Ai,B)+0j)  
-    print(ev[0])
+    A=np.zeros([4,4])
+    A[:2,:2]=D
+    A[:2,2:]=K
+    A[2:,:2]=-np.diag(np.ones(2))
+   
+#    Ai=inv(A)
+    ev=eig(A,-B)  
+#    for i in range(len(ev[0])):
+    print(np.sum(A@ev[1][:,0]+ev[0][0]*B@ev[1][:,0]))
+#    N=ev[0][0]**2*M+ev[0][0]*D+K
+#    print(eig(N))         
+#        print(ev[i,3:]
     return ev[0]
     
 # theodorsen garrik    
